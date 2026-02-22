@@ -1,0 +1,8 @@
+.App {
+  text-align: left;
+}
+
+/* Page transition wrapper */
+.page-content {
+  min-height: calc(100vh - 80px);
+}
