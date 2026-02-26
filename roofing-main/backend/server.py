@@ -12,9 +12,9 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 from functools import lru_cache
-import aiosmtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import os
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -25,25 +25,32 @@ client = AsyncIOMotorClient(mongo_url, maxPoolSize=50, minPoolSize=10)
 db = client[os.environ['DB_NAME']]
 
 
-# Email configuration (optional - only if key is configured)
-async def send_email_gmail(to_email, subject, html_content):
-    message = MIMEMultipart()
-    message["From"] = os.environ["EMAIL_USER"]
-    message["To"] = to_email
-    message["Subject"] = subject
+def send_email_brevo(to_email: str, subject: str, html_content: str):
+    """Send email using Brevo (Sendinblue) API"""
+    configuration = sib_api_v3_sdk.Configuration()
+    configuration.api_key['api-key'] = os.environ.get("BREVO_API_KEY")
 
-    message.attach(MIMEText(html_content, "html"))
-
-    await aiosmtplib.send(
-        message,
-        hostname=os.environ["EMAIL_HOST"],
-        port=int(os.environ["EMAIL_PORT"]),
-        start_tls=True,
-        username=os.environ["EMAIL_USER"],
-        password=os.environ["EMAIL_PASS"],
+    api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
+        sib_api_v3_sdk.ApiClient(configuration)
     )
 
+    send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+        to=[{"email": to_email}],
+        sender={
+            "email": os.environ.get("SENDER_EMAIL"),
+            "name": "22G Roofing"
+        },
+        subject=subject,
+        html_content=html_content,
+    )
 
+    try:
+        api_instance.send_transac_email(send_smtp_email)
+        logger.info(f"Email sent successfully to {to_email}")
+        return True
+    except ApiException as e:
+        logger.error(f"Brevo email error: {e}")
+        return False
 
 # Create the main app
 app = FastAPI(title="22G Roofing API")
@@ -253,109 +260,109 @@ async def submit_quote(input: QuoteRequestCreate):
     await db.quotes.insert_one(quote_dict)
     logger.info(f"Quote request saved: {quote_obj.id}")
     
-    # Send email via Gmail SMTP
-    if os.environ.get("EMAIL_USER"):
-        email_html = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; padding: 20px; background-color: #f8fafc;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;">
-                <h1 style="color: #0f172a; margin-bottom: 20px; font-size: 24px;">🏠 New Quote Request</h1>
-                <table style="width: 100%; border-collapse: collapse;">
+    # ================== EMAIL TEMPLATES ==================
+    email_html = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; padding: 20px; background-color: #f8fafc;">
+        <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <h1 style="color: #0f172a; margin-bottom: 20px;">New Quote Request</h1>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                    <td style="padding: 10px 0; color: #64748b; font-weight: bold;">Name:</td>
+                    <td style="padding: 10px 0; color: #0f172a;">{quote_obj.name}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                    <td style="padding: 10px 0; color: #64748b; font-weight: bold;">Email:</td>
+                    <td style="padding: 10px 0; color: #0f172a;">{quote_obj.email}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                    <td style="padding: 10px 0; color: #64748b; font-weight: bold;">Phone:</td>
+                    <td style="padding: 10px 0; color: #0f172a;">{quote_obj.phone}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                    <td style="padding: 10px 0; color: #64748b; font-weight: bold;">Service Type:</td>
+                    <td style="padding: 10px 0; color: #0f172a;">{quote_obj.service_type}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0; color: #64748b; font-weight: bold;">Address:</td>
+                    <td style="padding: 10px 0; color: #0f172a;">{quote_obj.address or 'N/A'}</td>
+                </tr>
+            </table>
+            <p style="margin-top: 20px; color: #64748b; white-space: pre-wrap; word-wrap: break-word;">
+                <strong>Message:</strong><br>{quote_obj.message or 'No additional message'}
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    customer_email_html = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; padding: 20px; background-color: #f8fafc;">
+        <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <h1 style="color: #0f172a; margin-bottom: 20px; font-size: 24px;">✓ Quote Request Received</h1>
+            <p style="color: #0f172a; font-size: 16px; line-height: 1.6;">
+                Hi <strong>{quote_obj.name}</strong>,<br><br>
+                Thank you for choosing <strong>22G Roofing</strong>! We've successfully received your quote request for <strong>{quote_obj.service_type}</strong>.<br><br>
+                Our team will review your request and get back to you shortly at <strong>{quote_obj.phone}</strong> or <strong>{quote_obj.email}</strong>.
+            </p>
+            
+            <div style="background-color: #f1f5f9; padding: 20px; border-left: 4px solid #0ea5e9; margin: 20px 0; border-radius: 4px;">
+                <h3 style="color: #0f172a; margin-top: 0;">Your Quote Details:</h3>
+                <table style="width: 100%;">
                     <tr>
-                        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #64748b; width: 120px;">Name:</td>
-                        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; color: #0f172a;">{quote_obj.name}</td>
+                        <td style="color: #64748b; font-weight: bold;">Request ID:</td>
+                        <td style="color: #0f172a;"><code style="background: white; padding: 4px 8px; border-radius: 4px;">{quote_obj.id}</code></td>
                     </tr>
                     <tr>
-                        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #64748b;">Email:</td>
-                        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; color: #0f172a;"><a href="mailto:{quote_obj.email}">{quote_obj.email}</a></td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #64748b;">Phone:</td>
-                        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; color: #0f172a;"><a href="tel:{quote_obj.phone}">{quote_obj.phone}</a></td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #64748b;">Service:</td>
-                        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; color: #0f172a;">{quote_obj.service_type}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #64748b;">Address:</td>
-                        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; color: #0f172a;">{quote_obj.address or 'Not provided'}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 10px 0; font-weight: bold; color: #64748b; vertical-align: top;">Message:</td>
-                        <td style="padding: 10px 0; color: #0f172a;">{quote_obj.message or 'No message provided'}</td>
+                        <td style="color: #64748b; font-weight: bold; padding-top: 8px;">Service Type:</td>
+                        <td style="color: #0f172a; padding-top: 8px;">{quote_obj.service_type}</td>
                     </tr>
                 </table>
-                <p style="margin-top: 30px; color: #64748b; font-size: 12px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-                    <strong>Submitted:</strong> {quote_obj.created_at.strftime('%d %B %Y at %I:%M %p UTC')}<br>
-                    <strong>Quote ID:</strong> {quote_obj.id}
-                </p>
             </div>
-        </body>
-        </html>
-        """
-        
-        # Send confirmation email to customer
-        customer_email_html = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; padding: 20px; background-color: #f8fafc;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;">
-                <h1 style="color: #0f172a; margin-bottom: 20px; font-size: 24px;">✓ Quote Request Received</h1>
-                <p style="color: #0f172a; font-size: 16px; line-height: 1.6;">
-                    Hi <strong>{quote_obj.name}</strong>,<br><br>
-                    Thank you for choosing <strong>22G Roofing</strong>! We've successfully received your quote request for <strong>{quote_obj.service_type}</strong>.<br><br>
-                    Our team will review your request and get back to you shortly at <strong>{quote_obj.phone}</strong> or <strong>{quote_obj.email}</strong>.
-                </p>
-                
-                <div style="background-color: #f1f5f9; padding: 20px; border-left: 4px solid #0ea5e9; margin: 20px 0; border-radius: 4px;">
-                    <h3 style="color: #0f172a; margin-top: 0;">Your Quote Details:</h3>
-                    <table style="width: 100%;">
-                        <tr>
-                            <td style="color: #64748b; font-weight: bold;">Request ID:</td>
-                            <td style="color: #0f172a;"><code style="background: white; padding: 4px 8px; border-radius: 4px;">{quote_obj.id}</code></td>
-                        </tr>
-                        <tr>
-                            <td style="color: #64748b; font-weight: bold; padding-top: 8px;">Service Type:</td>
-                            <td style="color: #0f172a; padding-top: 8px;">{quote_obj.service_type}</td>
-                        </tr>
-                    </table>
-                </div>
-                
-                <p style="color: #64748b; font-size: 14px;">
-                    <strong>Contact Us:</strong><br>
-                    📞 Pavandeep Singh: +61 448 046 461<br>
-                    📞 Bhupendra Singh: +61 410 632 540<br>
-                    📧 Email: sales22groofing@outlook.com<br>
-                    📍 Address: 12 Bedford Road, Blacktown NSW 2148, Australia
-                </p>
-                
-                <p style="margin-top: 30px; color: #64748b; font-size: 12px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-                    This is an automated response. Please do not reply to this email.
-                </p>
-            </div>
-        </body>
-        </html>
-        """
-        
+            
+            <p style="color: #64748b; font-size: 14px;">
+                <strong>Contact Us:</strong><br>
+                📞 Pavandeep Singh: +61 448 046 461<br>
+                📞 Bhupendra Singh: +61 410 632 540<br>
+                📧 Email: sales22groofing@outlook.com<br>
+                📍 Address: 12 Bedford Road, Blacktown NSW 2148, Australia
+            </p>
+            
+            <p style="margin-top: 30px; color: #64748b; font-size: 12px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+                This is an automated response. Please do not reply to this email.
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    # ================== SEND NOTIFICATIONS VIA BREVO ==================
+    if os.environ.get("BREVO_API_KEY"):
         try:
-            # Email to admin
-            await send_email_gmail(
+            # Email to admin with quote details
+            admin_sent = send_email_brevo(
                 to_email=os.environ.get("NOTIFICATION_EMAIL"),
                 subject=f"New Quote Request - {quote_obj.service_type}",
                 html_content=email_html
             )
 
-            # Email to customer
-            await send_email_gmail(
+            # Email to customer with confirmation
+            customer_sent = send_email_brevo(
                 to_email=quote_obj.email,
                 subject="Quote Request Confirmation - 22G Roofing",
                 html_content=customer_email_html
             )
 
-            logger.info("Emails sent successfully")
+            if admin_sent and customer_sent:
+                logger.info(f"All emails sent successfully for quote {quote_obj.id}")
+            else:
+                logger.warning(f"Some emails failed to send for quote {quote_obj.id}")
 
         except Exception as e:
-            logger.error(f"Email sending failed: {e}")
+            logger.error(f"Brevo email service error: {e}")
+    else:
+        logger.warning("BREVO_API_KEY not configured - emails not sent")
     
     return quote_obj
 
