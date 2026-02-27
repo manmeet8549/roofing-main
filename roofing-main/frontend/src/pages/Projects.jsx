@@ -68,6 +68,10 @@ export default function Projects() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [filter, setFilter] = useState("All");
 
+  useEffect(() => {
+    document.title = "Our Roofing Projects | 22G Roofing NSW";
+  }, []);
+
   const fetchProjects = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/projects`);

@@ -19,6 +19,10 @@ export default function Services() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    document.title = "Roofing Services in Blacktown NSW | 22G Roofing";
+  }, []);
+
+  useEffect(() => {
     const fetchServices = async () => {
       try {
         const response = await axios.get(`${API}/services`);

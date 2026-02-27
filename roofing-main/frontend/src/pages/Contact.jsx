@@ -40,6 +40,10 @@ export default function Contact() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  useEffect(() => {
+    document.title = "Contact 22G Roofing | Blacktown Roofing Experts";
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));

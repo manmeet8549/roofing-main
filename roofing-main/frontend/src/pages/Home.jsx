@@ -126,6 +126,10 @@ export default function Home() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    document.title = "22G Roofing | Metal Roofing & Re-Roofing in Blacktown NSW";
+  }, []);
+
   const fetchData = useCallback(async () => {
     try {
       const [servicesRes, projectsRes] = await Promise.all([

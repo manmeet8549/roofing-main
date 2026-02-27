@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Shield, Users, Award, Target, CheckCircle, Phone } from "lucide-react";
+import { useEffect } from "react";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 40 },
@@ -48,6 +49,10 @@ const values = [
 ];
 
 export default function About() {
+  useEffect(() => {
+    document.title = "About 22G Roofing Pty Ltd | NSW Roofing Specialists";
+  }, []);
+
   return (
     <div data-testid="about-page" className="pt-20">
       {/* Hero Section with Decorative Design */}
