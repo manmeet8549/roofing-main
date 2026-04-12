@@ -242,8 +242,9 @@ async def keep_alive_task():
             await asyncio.sleep(120)  # Wait 2 minutes between pings
             # Make a request to the health endpoint
             async with httpx.AsyncClient() as client:
-                # Use environment variable for base URL, fallback to localhost
-                base_url = os.environ.get('BACKEND_URL', 'http://localhost:8000')
+                # Detect port (Render uses PORT env var, defaults to 10000)
+                port = os.environ.get('PORT', '10000')
+                base_url = os.environ.get('BACKEND_URL', f'http://localhost:{port}')
                 response = await client.get(f"{base_url}/api/health", timeout=10.0)
                 logger.info(f"Keep-alive ping successful - Status: {response.status_code}")
         except Exception as e:
