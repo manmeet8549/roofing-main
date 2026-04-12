@@ -6,13 +6,13 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import asyncio
+import httpx
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 from functools import lru_cache
-import os
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 
@@ -230,10 +230,45 @@ def get_projects_data():
         ),
     ]
 
+# Background task for keeping the backend alive
+async def keep_alive_task():
+    """Background task that pings the server every 2 minutes to prevent idle timeout"""
+    import httpx
+    
+    await asyncio.sleep(10)  # Wait 10 seconds after startup before starting keep-alive
+    
+    while True:
+        try:
+            await asyncio.sleep(120)  # Wait 2 minutes between pings
+            # Make a request to the health endpoint
+            async with httpx.AsyncClient() as client:
+                # Use environment variable for base URL, fallback to localhost
+                base_url = os.environ.get('BACKEND_URL', 'http://localhost:8000')
+                response = await client.get(f"{base_url}/api/health", timeout=10.0)
+                logger.info(f"Keep-alive ping successful - Status: {response.status_code}")
+        except Exception as e:
+            logger.warning(f"Keep-alive ping failed: {e}")
+
+@app.on_event("startup")
+async def startup_event():
+    """Start background tasks when the app starts"""
+    # Start the keep-alive task in the background
+    asyncio.create_task(keep_alive_task())
+    logger.info("Keep-alive background task started")
+
 # Routes
 @api_router.get("/")
 async def root():
     return {"message": "22G Roofing API", "status": "active"}
+
+@api_router.get("/health")
+async def health_check():
+    """Health check endpoint for monitoring and keep-alive pings"""
+    return {
+        "message": "22G Roofing API", 
+        "status": "active",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
 
 @api_router.get("/contact-info", response_model=ContactInfo)
 async def get_contact_info(response: Response):
