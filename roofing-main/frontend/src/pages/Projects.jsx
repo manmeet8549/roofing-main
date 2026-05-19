@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { X, ArrowRight } from "lucide-react";
 import axios from "axios";
+import { STATIC_PROJECTS, getLocalImagePath } from "../data/staticData";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -17,9 +18,10 @@ const fadeInUp = {
 // Additional gallery images (empty - all images now come from backend)
 const additionalImages = [];
 
-// Memoized project card component
+// Memoized project card component with self-healing local/remote image paths
 const ProjectGridCard = memo(function ProjectGridCard({ project, index, onClick }) {
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imgSrc, setImgSrc] = useState(getLocalImagePath(project.image_url));
   
   return (
     <motion.div
@@ -36,11 +38,16 @@ const ProjectGridCard = memo(function ProjectGridCard({ project, index, onClick 
         <div className="absolute inset-0 bg-slate-100 animate-pulse" />
       )}
       <img
-        src={project.image_url}
+        src={imgSrc}
         alt={project.title}
         loading="lazy"
         decoding="async"
         onLoad={() => setImageLoaded(true)}
+        onError={() => {
+          if (imgSrc !== project.image_url) {
+            setImgSrc(project.image_url);
+          }
+        }}
         className={`w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-110 ${
           imageLoaded ? 'opacity-100' : 'opacity-0'
         }`}
@@ -62,9 +69,26 @@ const ProjectGridCard = memo(function ProjectGridCard({ project, index, onClick 
   );
 });
 
+// Self-healing lightbox image component
+const LightboxImage = memo(function LightboxImage({ project }) {
+  const [imgSrc, setImgSrc] = useState(getLocalImagePath(project.image_url));
+  return (
+    <img
+      src={imgSrc}
+      alt={project.title}
+      onError={() => {
+        if (imgSrc !== project.image_url) {
+          setImgSrc(project.image_url);
+        }
+      }}
+      className="w-full aspect-square lg:aspect-auto lg:h-full object-cover"
+    />
+  );
+});
+
 export default function Projects() {
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [projects, setProjects] = useState(STATIC_PROJECTS);
+  const [loading, setLoading] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
   const [filter, setFilter] = useState("All");
 
@@ -75,12 +99,11 @@ export default function Projects() {
   const fetchProjects = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/projects`);
-      setProjects([...response.data, ...additionalImages]);
+      if (response.data && response.data.length > 0) {
+        setProjects([...response.data, ...additionalImages]);
+      }
     } catch (error) {
-      console.error("Error fetching projects:", error);
-      setProjects(additionalImages);
-    } finally {
-      setLoading(false);
+      console.error("Error fetching projects (using static fallback):", error);
     }
   }, []);
 
@@ -204,11 +227,7 @@ export default function Projects() {
               </button>
               
               <div className="grid grid-cols-1 lg:grid-cols-2">
-                <img
-                  src={selectedProject.image_url}
-                  alt={selectedProject.title}
-                  className="w-full aspect-square lg:aspect-auto lg:h-full object-cover"
-                />
+                <LightboxImage project={selectedProject} />
                 <div className="p-8 lg:p-12">
                   <span className="text-accent text-sm font-bold tracking-widest uppercase mb-4 block">
                     {selectedProject.category}

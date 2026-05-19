@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Phone, ArrowRight, Shield, Award, Clock, CheckCircle } from "lucide-react";
 import axios from "axios";
+import { STATIC_SERVICES, STATIC_PROJECTS, STATIC_HERO_IMAGE, getLocalImagePath } from "../data/staticData";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -46,9 +47,10 @@ const FeatureCard = memo(function FeatureCard({ icon: Icon, title, desc }) {
   );
 });
 
-// Memoized service card
+// Memoized service card with double fallback self-healing image loader
 const ServiceCard = memo(function ServiceCard({ service }) {
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imgSrc, setImgSrc] = useState(getLocalImagePath(service.image_url));
   
   return (
     <motion.div
@@ -58,11 +60,16 @@ const ServiceCard = memo(function ServiceCard({ service }) {
       <div className="aspect-[4/3] overflow-hidden bg-slate-100">
         {!imageLoaded && <div className="absolute inset-0 bg-slate-100 animate-pulse" />}
         <img
-          src={service.image_url}
+          src={imgSrc}
           alt={service.title}
           loading="lazy"
           decoding="async"
           onLoad={() => setImageLoaded(true)}
+          onError={() => {
+            if (imgSrc !== service.image_url) {
+              setImgSrc(service.image_url);
+            }
+          }}
           className={`w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-110 ${
             imageLoaded ? 'opacity-100' : 'opacity-0'
           }`}
@@ -80,9 +87,10 @@ const ServiceCard = memo(function ServiceCard({ service }) {
   );
 });
 
-// Memoized project card
+// Memoized project card with double fallback self-healing image loader
 const ProjectCard = memo(function ProjectCard({ project }) {
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imgSrc, setImgSrc] = useState(getLocalImagePath(project.image_url));
   
   return (
     <motion.div
@@ -91,11 +99,16 @@ const ProjectCard = memo(function ProjectCard({ project }) {
     >
       {!imageLoaded && <div className="absolute inset-0 bg-slate-100 animate-pulse" />}
       <img
-        src={project.image_url}
+        src={imgSrc}
         alt={project.title}
         loading="lazy"
         decoding="async"
         onLoad={() => setImageLoaded(true)}
+        onError={() => {
+          if (imgSrc !== project.image_url) {
+            setImgSrc(project.image_url);
+          }
+        }}
         className={`w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-110 ${
           imageLoaded ? 'opacity-100' : 'opacity-0'
         }`}
@@ -114,6 +127,23 @@ const ProjectCard = memo(function ProjectCard({ project }) {
   );
 });
 
+// Memoized Hero background image with fallback
+const HeroBgImage = memo(function HeroBgImage() {
+  const [imgSrc, setImgSrc] = useState(getLocalImagePath(STATIC_HERO_IMAGE.image_url));
+  return (
+    <img
+      src={imgSrc}
+      alt="Professional Roofing"
+      className="w-full h-full object-cover"
+      onError={() => {
+        if (imgSrc !== STATIC_HERO_IMAGE.image_url) {
+          setImgSrc(STATIC_HERO_IMAGE.image_url);
+        }
+      }}
+    />
+  );
+});
+
 const features = [
   { icon: Shield, title: "Licensed & Insured", desc: "Fully licensed roofing contractor with comprehensive insurance coverage" },
   { icon: Award, title: "Quality Materials", desc: "We use premium Colorbond and BlueScope steel products" },
@@ -122,9 +152,9 @@ const features = [
 ];
 
 export default function Home() {
-  const [services, setServices] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [services, setServices] = useState(STATIC_SERVICES.slice(0, 3));
+  const [projects, setProjects] = useState(STATIC_PROJECTS.slice(0, 4));
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     document.title = "22G Roofing | Metal Roofing & Re-Roofing in Blacktown NSW";
@@ -136,12 +166,15 @@ export default function Home() {
         axios.get(`${API}/services`),
         axios.get(`${API}/projects`)
       ]);
-      setServices(servicesRes.data.slice(0, 3));
-      setProjects(projectsRes.data.slice(0, 4));
+      // Update state with fresh database values if fetch is successful
+      if (servicesRes.data && servicesRes.data.length > 0) {
+        setServices(servicesRes.data.slice(0, 3));
+      }
+      if (projectsRes.data && projectsRes.data.length > 0) {
+        setProjects(projectsRes.data.slice(0, 4));
+      }
     } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error fetching live data (using static fallback):", error);
     }
   }, []);
 
@@ -155,11 +188,7 @@ export default function Home() {
       <section className="relative h-screen flex items-center justify-center overflow-hidden" data-testid="hero-section">
         {/* Hero Background Image */}
         <div className="absolute inset-0 z-0">
-          <img
-            src="https://customer-assets.emergentagent.com/job_aussie-roof-pros/artifacts/v9tz2fvc_image.png"
-            alt="Professional Roofing"
-            className="w-full h-full object-cover"
-          />
+          <HeroBgImage />
           <div className="absolute inset-0 bg-gradient-to-b from-primary/50 via-primary/60 to-primary/90"></div>
         </div>
 

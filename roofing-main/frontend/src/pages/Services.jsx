@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle, Phone } from "lucide-react";
 import axios from "axios";
+import { STATIC_SERVICES, getLocalImagePath } from "../data/staticData";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -14,9 +15,44 @@ const fadeInUp = {
   transition: { duration: 1, ease: [0.16, 1, 0.3, 1] }
 };
 
+// Self-healing service image loader
+const ServiceImage = memo(function ServiceImage({ service }) {
+  const [imgSrc, setImgSrc] = useState(getLocalImagePath(service.image_url));
+  return (
+    <img
+      src={imgSrc}
+      alt={service.title}
+      onError={() => {
+        if (imgSrc !== service.image_url) {
+          setImgSrc(service.image_url);
+        }
+      }}
+      className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+    />
+  );
+});
+
+// Self-healing materials image loader
+const MaterialsImage = memo(function MaterialsImage() {
+  const remoteUrl = "https://customer-assets.emergentagent.com/job_5a784e05-5e78-4067-aa14-a5ab6084b2ac/artifacts/ov39vvwi_WhatsApp%20Image%202026-01-30%20at%202.39.01%20PM%20%281%29.jpeg";
+  const [imgSrc, setImgSrc] = useState(getLocalImagePath(remoteUrl));
+  return (
+    <img
+      src={imgSrc}
+      alt="Premium metal roofing"
+      onError={() => {
+        if (imgSrc !== remoteUrl) {
+          setImgSrc(remoteUrl);
+        }
+      }}
+      className="w-full aspect-square object-cover"
+    />
+  );
+});
+
 export default function Services() {
-  const [services, setServices] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [services, setServices] = useState(STATIC_SERVICES);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     document.title = "Roofing Services in Blacktown NSW | 22G Roofing";
@@ -26,11 +62,11 @@ export default function Services() {
     const fetchServices = async () => {
       try {
         const response = await axios.get(`${API}/services`);
-        setServices(response.data);
+        if (response.data && response.data.length > 0) {
+          setServices(response.data);
+        }
       } catch (error) {
-        console.error("Error fetching services:", error);
-      } finally {
-        setLoading(false);
+        console.error("Error fetching services (using static fallback):", error);
       }
     };
     fetchServices();
@@ -82,11 +118,7 @@ export default function Services() {
                 >
                   <div className={index % 2 === 1 ? "lg:order-2" : ""}>
                     <div className="relative overflow-hidden aspect-[4/3]">
-                      <img
-                        src={service.image_url}
-                        alt={service.title}
-                        className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
-                      />
+                      <ServiceImage service={service} />
                     </div>
                   </div>
                   
@@ -206,11 +238,7 @@ export default function Services() {
               {...fadeInUp}
               transition={{ delay: 0.2 }}
             >
-              <img
-                src="https://customer-assets.emergentagent.com/job_5a784e05-5e78-4067-aa14-a5ab6084b2ac/artifacts/ov39vvwi_WhatsApp%20Image%202026-01-30%20at%202.39.01%20PM%20%281%29.jpeg"
-                alt="Premium metal roofing"
-                className="w-full aspect-square object-cover"
-              />
+              <MaterialsImage />
             </motion.div>
           </div>
         </div>
