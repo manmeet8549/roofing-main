@@ -239,7 +239,7 @@ export default function Home() {
               <ArrowRight className="w-4 h-4" />
             </Link>
             <a
-              href="tel:+61448046461"
+              href="tel:+61410632540"
               className="bg-white/10 backdrop-blur-sm border border-white/30 text-white px-8 py-4 text-sm font-bold tracking-widest uppercase hover:bg-white/20 transition-colors flex items-center gap-2"
               data-testid="hero-call-btn"
             >
@@ -404,12 +404,12 @@ export default function Home() {
                 Get a Free Quote
               </Link>
               <a
-                href="tel:+61448046461"
+                href="tel:+61410632540"
                 className="bg-transparent border border-white/30 text-white px-8 py-4 text-sm font-bold tracking-widest uppercase hover:bg-white/10 transition-colors flex items-center gap-2"
                 data-testid="cta-call-btn"
               >
                 <Phone className="w-4 h-4" />
-                +61 448 046 461
+                +61 410 632 540
               </a>
             </div>
           </motion.div>

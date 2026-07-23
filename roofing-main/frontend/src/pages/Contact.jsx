@@ -164,17 +164,6 @@ export default function Contact() {
                     <h3 className="font-heading font-semibold text-primary mb-2">Phone</h3>
                     <div className="space-y-3">
                       <div>
-                        <p className="text-xs text-muted uppercase tracking-wider">Pavandeep Singh (Director)</p>
-                        <a 
-                          href="tel:+61448046461" 
-                          className="text-primary font-semibold text-lg hover:text-accent transition-colors inline-flex items-center gap-2"
-                          data-testid="phone-pavandeep"
-                        >
-                          +61 448 046 461
-                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Tap to Call</span>
-                        </a>
-                      </div>
-                      <div>
                         <p className="text-xs text-muted uppercase tracking-wider">Bhupendra Singh (Director)</p>
                         <a 
                           href="tel:+61410632540" 

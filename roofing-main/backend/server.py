@@ -118,7 +118,6 @@ def get_contact_info_data():
         postcode="2148",
         country="Australia",
         contacts=[
-            {"name": "Pavandeep Singh", "phone": "+61 448 046 461", "role": "Director"},
             {"name": "Bhupendra Singh", "phone": "+61 410 632 540", "role": "Director"}
         ],
         email="sales22groofing@outlook.com"
@@ -359,7 +358,6 @@ async def submit_quote(input: QuoteRequestCreate):
             
             <p style="color: #64748b; font-size: 14px;">
                 <strong>Contact Us:</strong><br>
-                📞 Pavandeep Singh: +61 448 046 461<br>
                 📞 Bhupendra Singh: +61 410 632 540<br>
                 📧 Email: sales22groofing@outlook.com<br>
                 📍 Address: 12 Bedford Road, Blacktown NSW 2148, Australia

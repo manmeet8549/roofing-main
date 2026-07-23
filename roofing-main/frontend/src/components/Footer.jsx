@@ -63,17 +63,6 @@ const Footer = memo(function Footer() {
             <h4 className="font-heading font-semibold text-lg mb-6">Call Us Now</h4>
             <div className="flex flex-col gap-4">
               <div>
-                <p className="text-sm text-accent font-medium mb-1">Pavandeep Singh (Director)</p>
-                <a 
-                  href="tel:+61448046461" 
-                  className="flex items-center gap-2 text-white hover:text-accent transition-colors group"
-                  data-testid="footer-phone-pavandeep"
-                >
-                  <Phone className="w-4 h-4 group-hover:animate-pulse" />
-                  <span className="text-lg font-semibold">+61 448 046 461</span>
-                </a>
-              </div>
-              <div>
                 <p className="text-sm text-accent font-medium mb-1">Bhupendra Singh (Director)</p>
                 <a 
                   href="tel:+61410632540" 

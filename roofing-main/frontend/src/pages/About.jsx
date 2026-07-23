@@ -12,12 +12,6 @@ const fadeInUp = {
 
 const teamMembers = [
   {
-    name: "Pavandeep Singh",
-    role: "Director",
-    phone: "+61 448 046 461",
-    description: "Leading 22G Roofing with a focus on quality craftsmanship and customer satisfaction."
-  },
-  {
     name: "Bhupendra Singh",
     role: "Director",
     phone: "+61 410 632 540",

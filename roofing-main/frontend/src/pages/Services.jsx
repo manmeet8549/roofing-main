@@ -264,7 +264,7 @@ export default function Services() {
                 Request a Quote
               </Link>
               <a
-                href="tel:+61448046461"
+                href="tel:+61410632540"
                 className="bg-transparent border border-white/30 text-white px-8 py-4 text-sm font-bold tracking-widest uppercase hover:bg-white/10 transition-colors flex items-center gap-2"
                 data-testid="services-call-btn"
               >

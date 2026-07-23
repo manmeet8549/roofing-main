@@ -14,8 +14,7 @@ const navLinks = [
 ];
 
 const contacts = [
-  { name: "Pavandeep Singh", phone: "+61 448 046 461" },
-  { name: "Bhupendra Singh", phone: "+61 410 632 540" }
+  { name: "Bhupendra Singh (Director)", phone: "+61 410 632 540" }
 ];
 
 export default function Navbar() {
