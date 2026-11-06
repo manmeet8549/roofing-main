@@ -7,6 +7,7 @@ import os
 import logging
 import asyncio
 import httpx
+import urllib.parse
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
@@ -16,13 +17,58 @@ from functools import lru_cache
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+def sanitize_mongo_url(url: str) -> str:
+    """Ensure username and password in MongoDB URI are properly percent-encoded."""
+    if not url or '://' not in url:
+        return url
+    try:
+        scheme_part, rest = url.split('://', 1)
+        if '@' not in rest:
+            return url
+        auth_part, host_part = rest.rsplit('@', 1)
+        if ':' in auth_part:
+            user, password = auth_part.split(':', 1)
+            safe_user = urllib.parse.quote_plus(urllib.parse.unquote_plus(user))
+            safe_password = urllib.parse.quote_plus(urllib.parse.unquote_plus(password))
+            return f"{scheme_part}://{safe_user}:{safe_password}@{host_part}"
+    except Exception as e:
+        logger.warning(f"Failed to sanitize MONGO_URL: {e}")
+    return url
+
 # MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url, maxPoolSize=50, minPoolSize=10)
-db = client[os.environ['DB_NAME']]
+raw_mongo_url = os.environ.get('MONGO_URL', '')
+db_name = os.environ.get('DB_NAME', 'roofing_db')
+
+client = None
+db = None
+
+if raw_mongo_url:
+    try:
+        mongo_url = sanitize_mongo_url(raw_mongo_url)
+        client = AsyncIOMotorClient(mongo_url, maxPoolSize=50, minPoolSize=10)
+        db = client[db_name]
+        logger.info(f"MongoDB client initialized successfully (database: {db_name})")
+    except Exception as e:
+        logger.error(
+            f"Failed to initialize MongoDB client: {e}. "
+            "Please check that MONGO_URL in your environment variables is valid. "
+            "If your password contains special characters like '#', make sure it is URL-encoded as '%23' "
+            "(e.g., 'Intel%230987') so Render does not treat '#' as a comment."
+        )
+        client = None
+        db = None
+else:
+    logger.warning("MONGO_URL environment variable is not set. Database features will be unavailable.")
 
 
 def send_email_brevo(to_email: str, subject: str, html_content: str):
@@ -60,13 +106,6 @@ app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 # Models
 class QuoteRequest(BaseModel):
@@ -291,9 +330,15 @@ async def submit_quote(input: QuoteRequestCreate):
     quote_dict = quote_obj.dict()
     quote_dict['created_at'] = quote_obj.created_at.isoformat()
     
-    # Store in MongoDB
-    await db.quotes.insert_one(quote_dict)
-    logger.info(f"Quote request saved: {quote_obj.id}")
+    # Store in MongoDB if available
+    if db is not None:
+        try:
+            await db.quotes.insert_one(quote_dict)
+            logger.info(f"Quote request saved to database: {quote_obj.id}")
+        except Exception as e:
+            logger.error(f"Error saving quote request to MongoDB: {e}")
+    else:
+        logger.warning(f"MongoDB not connected. Quote request {quote_obj.id} was not saved to database.")
     
     # ================== EMAIL TEMPLATES ==================
     email_html = f"""
@@ -402,8 +447,14 @@ async def submit_quote(input: QuoteRequestCreate):
 
 @api_router.get("/quotes", response_model=List[QuoteRequest])
 async def get_quotes():
-    quotes = await db.quotes.find({}, {"_id": 0}).to_list(1000)
-    return quotes
+    if db is not None:
+        try:
+            quotes = await db.quotes.find({}, {"_id": 0}).to_list(1000)
+            return quotes
+        except Exception as e:
+            logger.error(f"Error fetching quotes from MongoDB: {e}")
+            raise HTTPException(status_code=500, detail="Database query error")
+    return []
 
 # Include the router in the main app
 app.include_router(api_router)
@@ -418,4 +469,5 @@ app.add_middleware(
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    client.close()
+    if client is not None:
+        client.close()
